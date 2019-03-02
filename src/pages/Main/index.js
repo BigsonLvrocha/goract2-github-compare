@@ -1,0 +1,61 @@
+import React, { Component } from 'react';
+import moment from 'moment';
+import logo from '../../assets/logo.png';
+import { Container, Form } from './styles';
+import CompareList from '../../components/CompareList';
+import api from '../../services/api';
+
+export default class Main extends Component {
+  state = {
+    loading: false,
+    repositoryInput: '',
+    repositories: [],
+    repositoryError: false,
+  };
+
+  handleAddRepository = async (e) => {
+    const { repositoryInput, repositories } = this.state;
+    this.setState({ loading: true });
+    e.preventDefault();
+    try {
+      const { data: repository } = await api.get(`/repos/${repositoryInput}`);
+      const inState = repositories.find(item => item.id === repository.id);
+      if (inState) {
+        throw new Error('You cannot add the same repository twice');
+      }
+      repository.lastCommit = moment(repository.pushed_at).fromNow();
+      this.setState({
+        repositoryInput: '',
+        repositories: [...repositories, repository],
+        repositoryError: false,
+      });
+    } catch (err) {
+      if (this.setState({ repositoryError: true }));
+    } finally {
+      this.setState({ loading: false });
+    }
+  };
+
+  render() {
+    const {
+      repositories, repositoryInput, repositoryError, loading,
+    } = this.state;
+    return (
+      <Container>
+        <img src={logo} alt="Github Compare" />
+
+        <Form withError={repositoryError} onSubmit={this.handleAddRepository}>
+          <input
+            type="text"
+            name="usuario"
+            placeholder="usuário/repositório"
+            value={repositoryInput}
+            onChange={e => this.setState({ repositoryInput: e.target.value })}
+          />
+          <button type="submit">{loading ? <i className="fa fa-spinner fa-pulse" /> : 'OK'}</button>
+        </Form>
+        <CompareList repositories={repositories} />
+      </Container>
+    );
+  }
+}
