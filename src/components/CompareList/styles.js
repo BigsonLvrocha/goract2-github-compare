@@ -55,4 +55,15 @@ export const Repository = styled.div`
       }
     }
   }
+
+  footer {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    padding: 0px 10px;
+    margin-bottom: 10px;
+    i:hover {
+      cursor: pointer;
+    }
+  }
 `;

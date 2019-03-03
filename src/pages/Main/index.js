@@ -13,20 +13,36 @@ export default class Main extends Component {
     repositoryError: false,
   };
 
+  componentDidMount() {
+    const inLocal = localStorage.getItem('@githubCompare:repositories');
+    if (!inLocal) {
+      return;
+    }
+    this.setState({
+      repositories: JSON.parse(inLocal),
+    });
+  }
+
   handleAddRepository = async (e) => {
     const { repositoryInput, repositories } = this.state;
     this.setState({ loading: true });
     e.preventDefault();
     try {
-      const { data: repository } = await api.get(`/repos/${repositoryInput}`);
-      const inState = repositories.find(item => item.id === repository.id);
-      if (inState) {
-        throw new Error('You cannot add the same repository twice');
-      }
+      const { data: repository } = await api.get(
+        `/repos/${repositoryInput}?timestamp=${new Date().getTime()}`,
+      );
+      const inStateIndex = repositories.find(item => item.id === repository.id);
       repository.lastCommit = moment(repository.pushed_at).fromNow();
+      const newRepositories = [...repositories];
+      if (inStateIndex === -1) {
+        newRepositories.push(repository);
+      } else {
+        newRepositories.splice(inStateIndex, 1, repository);
+      }
+      localStorage.setItem('@githubCompare:repositories', JSON.stringify(newRepositories));
       this.setState({
         repositoryInput: '',
-        repositories: [...repositories, repository],
+        repositories: newRepositories,
         repositoryError: false,
       });
     } catch (err) {
@@ -34,6 +50,29 @@ export default class Main extends Component {
     } finally {
       this.setState({ loading: false });
     }
+  };
+
+  handleDelete = (repository) => {
+    const { repositories } = this.state;
+    const newRepos = repositories.filter(item => item.id !== repository.id);
+    this.setState({
+      repositories: newRepos,
+    });
+    localStorage.setItem('@githubCompare:repositories', JSON.stringify(newRepos));
+  };
+
+  handleRefresh = async (repository) => {
+    const { repositories } = this.state;
+    const repIndex = repositories.findIndex(item => item.id === repository.id);
+    const { data } = await api.get(
+      `/repos/${repository.owner.login}/${repository.name}?timestamp=${new Date().getTime()}`,
+    );
+    data.lastCommit = moment(repository.pushed_at).fromNow();
+    repositories.splice(repIndex, 1, data);
+    this.setState({
+      repositories,
+    });
+    localStorage.setItem('@githubCompare:repositories', JSON.stringify(repositories));
   };
 
   render() {
@@ -54,7 +93,11 @@ export default class Main extends Component {
           />
           <button type="submit">{loading ? <i className="fa fa-spinner fa-pulse" /> : 'OK'}</button>
         </Form>
-        <CompareList repositories={repositories} />
+        <CompareList
+          onRefresh={this.handleRefresh}
+          onDelete={this.handleDelete}
+          repositories={repositories}
+        />
       </Container>
     );
   }
